@@ -1,20 +1,28 @@
 
 
-module Color where
+module Color(
+  Color,
+  color,
+  showColor
+) where
+
+import RTWeekend
+import Vec3
 
 
-data Color = Color {r :: Double, g :: Double, b :: Double}
-             deriving Show
-
-quasi256 :: Double
-quasi256 = 255.999
+type Color = Vec3
 
 color :: Double -> Double -> Double -> Color
-color = Color
+color = Vec3
 
-showColor :: Color -> String
-showColor (Color r g b) = show r' ++ " " ++ show g' ++ " " ++ show b'
+
+showColor :: Int   -- Samples per pixel
+          -> Color -- Color
+          -> String
+showColor samples col = show r ++ " " ++ show g ++ " " ++ show b
   where
-    r' = floor (r*quasi256)
-    g' = floor (g*quasi256)
-    b' = floor (b*quasi256)
+    scale = 1.0 / fromIntegral samples
+    col'  = col `mul` scale     
+    r     = floor (256 * clamp (sqrt $ x col') 0 0.999) :: Int
+    g     = floor (256 * clamp (sqrt $ y col') 0 0.999) :: Int
+    b     = floor (256 * clamp (sqrt $ z col') 0 0.999) :: Int
