@@ -42,15 +42,16 @@ maxDepth = 50
 -- World
 materialGround, materialCenter, materialLeft, materialRight :: M.Material
 materialGround = M.lambertian $ color 0.8 0.8 0.0
-materialCenter = M.lambertian $ color 0.7 0.3 0.3
-materialLeft   = M.metal (color 0.8 0.8 0.8) 0.3
-materialRight  = M.metal (color 0.8 0.6 0.2) 1
+materialCenter = M.lambertian $ color 0.1 0.2 0.5
+materialLeft   = M.dielectric 1.5
+materialRight  = M.metal (color 0.8 0.6 0.2) 0
 
 
 world :: [Hittable]
 world = [sphere (V.point3 0 (-100.5) (-1)) 100 materialGround,
          sphere (V.point3 0 0 (-1)) 0.5 materialCenter,
          sphere (V.point3 (-1) 0 (-1.0)) 0.5 materialLeft,
+         sphere (V.point3 (-1) 0 (-1.0)) (-0.4) materialLeft,
          sphere (V.point3 1 0 (-1)) 0.5 materialRight]
 
 

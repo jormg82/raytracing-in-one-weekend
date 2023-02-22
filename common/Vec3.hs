@@ -13,7 +13,7 @@ module Vec3(
   random, randomR,
   randomInUnitSphere,
   randomUnitVector,
-  reflect
+  reflect, refract
 ) where
 
 import qualified RTWeekend as RT
@@ -88,3 +88,21 @@ randomUnitVector = unitVec <$> randomInUnitSphere
 reflect :: Vec3 -> Vec3 -> Vec3
 reflect vec normal = vec `diff` mul normal (2 * dot vec normal)
 
+refract :: Vec3
+        -> Vec3
+        -> Double
+        -> Vec3
+refract uv n etaiOveretat = rOutPerp `add` rOutParallel
+  where
+    cosTheta = min (neg uv `dot` n) 1
+    rOutPerp = mul (uv `add` mul n cosTheta) etaiOveretat
+    rOutParallel = mul n (-sqrt (abs $ 1-lenSquared rOutPerp))
+
+{---------------------
+vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
+    auto cos_theta = fmin(dot(-uv, n), 1.0);
+    vec3 r_out_perp =  etai_over_etat * (uv + cos_theta*n);
+    vec3 r_out_parallel = -sqrt(fabs(1.0 - r_out_perp.length_squared())) * n;
+    return r_out_perp + r_out_parallel;
+}
+---------------------}
