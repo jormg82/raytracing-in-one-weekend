@@ -11,94 +11,132 @@ import qualified RTWeekend as RT
 import Scatter(scatter)
 import qualified Vec3 as V
 
-import Control.Monad(forM_, replicateM)
+import Control.Monad(forM, forM_, replicateM)
+import Data.Maybe(catMaybes)
 import System.IO(hPutStrLn, stderr)
 
 
 -- Image
 aspectRatio :: Double
-aspectRatio = 16.0 / 9.0
+aspectRatio = 3/2
 
 imageWidth :: Int
---OJO!! reponer
---imageWidth  = 400
+--imageWidth  = 1200
 imageWidth = 400
 
 imageHeight :: Int
 imageHeight = floor $ fromIntegral imageWidth / aspectRatio
 
 samplesPerPixel :: Int
--- OJO!! reponer
---samplesPerPixel = 100
-samplesPerPixel = 100
+--samplesPerPixel = 500
+samplesPerPixel = 20 
 
 
 maxDepth :: Int
---OJO!! reponer
 --maxDepth = 50
-maxDepth = 50
+maxDepth = 20
 
 
 -- World
-materialGround, materialCenter, materialLeft, materialRight :: M.Material
-materialGround = M.lambertian $ color 0.8 0.8 0.0
-materialCenter = M.lambertian $ color 0.1 0.2 0.5
-materialLeft   = M.dielectric 1.5
-materialRight  = M.metal (color 0.8 0.6 0.2) 0
+type World = [Hittable]
 
 
-world :: [Hittable]
-world = [sphere (V.point3 0 (-100.5) (-1)) 100 materialGround,
-         sphere (V.point3 0 0 (-1)) 0.5 materialCenter,
-         sphere (V.point3 (-1) 0 (-1.0)) 0.5 materialLeft,
-         sphere (V.point3 (-1) 0 (-1.0)) (-0.4) materialLeft,
-         sphere (V.point3 1 0 (-1)) 0.5 materialRight]
+randomScene :: IO World
+randomScene = do
+  let groundMaterial = M.lambertian $ color 0.5 0.5 0.5
+      material1      = M.dielectric 1.5
+      material2      = M.lambertian $ color 0.4 0.2 0.1
+      material3      = M.metal (color 0.7 0.6  0.5) 0
+      w1             = [sphere (V.point3 0 (-1000) 0) 1000 groundMaterial,
+                        sphere (V.point3 0 1 0) 1 material1,
+                        sphere (V.point3 (-4) 1 0) 1 material2,
+                        sphere (V.point3 4 1 0) 1 material3]
+  w2 <- forM [(a, b) | a <- [(-11)..10], b <- [(-11)..10]] randomObject
+  return $ w1 ++ catMaybes w2
+
+
+randomObject :: (Int, Int) -> IO (Maybe Hittable)
+randomObject (a, b) = do
+  chooseMat <- RT.randomDouble
+  centerx   <- RT.randomDouble
+  centerz   <- RT.randomDouble
+  let center = V.point3 (fromIntegral a+0.9*centerx)
+                        0.2
+                        (fromIntegral b+0.9*centerz)
+      selector = V.len (center `V.diff` V.point3 4 0.2 0) > 0.9
+  if selector then
+    case (chooseMat < 0.8, chooseMat < 0.95) of
+
+      -- Diffuse
+      (True, _)      -> do albedo <- V.prod <$> V.random <*> V.random
+                           let sphereMaterial = M.lambertian albedo
+                           return $ Just $ sphere center 0.2 sphereMaterial
+
+      -- Metal
+      (False, True)  -> do albedo <- V.randomR 0.5 1
+                           fuzz <- RT.randomDoubleR 0 0.5
+                           let sphereMaterial = M.metal albedo fuzz
+                           return $ Just $ sphere center 0.2 sphereMaterial
+ 
+      -- Glass
+      (False, False) -> do let sphereMaterial = M.dielectric 1.5
+                           return $ Just $ sphere center 0.2 sphereMaterial
+
+  else
+    return Nothing
 
 
 -- Camera
-viewportHeight, viewportWidth, focalLength :: Double
-viewportHeight = 2.0
-viewportWidth  = aspectRatio * viewportHeight
-focalLength    = 1.0
+lookFrom, lookAt :: V.Point3
+lookFrom = V.point3 13 2 3
+lookAt   = V.point3 0 0 0
 
-orig :: V.Point3
-orig = V.vec3 0 0 0
+vup :: V.Vec3
+vup = V.vec3 0 1 0
+
+distToFocus :: Double
+distToFocus = 10
+
+aperture :: Double
+aperture = 0.1
 
 cam :: Cam.Camera
-cam = Cam.camera aspectRatio viewportHeight focalLength orig
+cam = Cam.camera lookFrom lookAt vup 20 aspectRatio aperture distToFocus
 
 
 
+-- MAIN
 main :: IO ()
 main = do
   -- File header
   putStrLn "P3"
   putStrLn $ show imageWidth ++ " " ++ show imageHeight
   putStrLn "255"
-  forM_ [imageHeight-1, imageHeight-2 .. 0] processRow
+  world <- randomScene
+  forM_ [imageHeight-1, imageHeight-2 .. 0] (processRow world)
 
 
-processRow :: Int -> IO ()
-processRow j = do
+processRow :: World -> Int -> IO ()
+processRow w j = do
   hPutStrLn stderr $ "Scanlines remaining: " ++ show j
-  forM_ [0..imageWidth-1] (processPixel j)
+  forM_ [0..imageWidth-1] (processPixel w j)
 
 
-processPixel :: Int -> Int -> IO ()
-processPixel j i = do
+processPixel :: World -> Int -> Int -> IO ()
+processPixel w j i = do
          -- al menos un sample!!
-  col <- foldr1 V.add <$> replicateM samplesPerPixel (processSample j i)
+  col <- foldr1 V.add <$> replicateM samplesPerPixel (processSample w j i)
   putStrLn $ showColor samplesPerPixel col
 
 
-processSample :: Int -> Int -> IO Color
-processSample j i = do
+processSample :: World -> Int -> Int -> IO Color
+processSample w j i = do
   r1 <- RT.randomDouble
   r2 <- RT.randomDouble
   let u = (fromIntegral i + r1) / fromIntegral (imageWidth-1)
       v = (fromIntegral j + r2) / fromIntegral (imageHeight-1)
-      r = Cam.getRay cam u v
-  rayColor r world maxDepth
+  r <- Cam.getRay cam u v
+  rayColor r w maxDepth
 
 
 rayColor :: Hit.Hit a => Ray.Ray
@@ -120,4 +158,5 @@ rayColor r a d
             Nothing                       -> return $ color 0 0 0
             Just (attenuation, scattered) -> (attenuation `V.prod`) <$>
                                              rayColor scattered a (d-1)
+
 

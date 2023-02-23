@@ -11,6 +11,7 @@ module Vec3(
   dot, prod, cross,
   unitVec,
   random, randomR,
+  randomInUnitDisk,
   randomInUnitSphere,
   randomUnitVector,
   reflect, refract
@@ -79,6 +80,11 @@ randomR :: Double -> Double -> IO Vec3
 randomR m n = let rd = RT.randomDoubleR m n
               in vec3 <$> rd <*> rd <*> rd
 
+randomInUnitDisk :: IO Vec3
+randomInUnitDisk =
+  iterateUntil ((<1) . lenSquared)
+  (vec3 <$> RT.randomDoubleR (-1) 1 <*> RT.randomDoubleR (-1) 1 <*> pure 0)
+
 randomInUnitSphere :: IO Vec3
 randomInUnitSphere = iterateUntil ((<1) . lenSquared) $ randomR (-1) 1
 
@@ -97,12 +103,3 @@ refract uv n etaiOveretat = rOutPerp `add` rOutParallel
     cosTheta = min (neg uv `dot` n) 1
     rOutPerp = mul (uv `add` mul n cosTheta) etaiOveretat
     rOutParallel = mul n (-sqrt (abs $ 1-lenSquared rOutPerp))
-
-{---------------------
-vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
-    auto cos_theta = fmin(dot(-uv, n), 1.0);
-    vec3 r_out_perp =  etai_over_etat * (uv + cos_theta*n);
-    vec3 r_out_parallel = -sqrt(fabs(1.0 - r_out_perp.length_squared())) * n;
-    return r_out_perp + r_out_parallel;
-}
----------------------}
