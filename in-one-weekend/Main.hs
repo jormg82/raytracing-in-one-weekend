@@ -18,23 +18,24 @@ import System.IO(hPutStrLn, stderr)
 
 -- Image
 aspectRatio :: Double
-aspectRatio = 3/2
+--aspectRatio = 3/2
+aspectRatio = 16/9
 
 imageWidth :: Int
 --imageWidth  = 1200
-imageWidth = 400
+imageWidth = 1000
 
 imageHeight :: Int
 imageHeight = floor $ fromIntegral imageWidth / aspectRatio
 
 samplesPerPixel :: Int
 --samplesPerPixel = 500
-samplesPerPixel = 20 
+samplesPerPixel = 500
 
 
 maxDepth :: Int
 --maxDepth = 50
-maxDepth = 20
+maxDepth = 50
 
 
 -- World
